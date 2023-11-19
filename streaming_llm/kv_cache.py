@@ -34,7 +34,7 @@ class StartRecentKVCache:
         self.cache_size = start_size + recent_size
         self.k_seq_dim = k_seq_dim
         self.v_seq_dim = v_seq_dim
-        self.k_slice = DIM_TO_SLICE[k_seq_dim]
+        self.k_slice = DIM_TO_SLICE[k_seq_dim]  # D: function like slice2d
         self.v_slice = DIM_TO_SLICE[v_seq_dim]
 
     def __call__(self, past_key_values):
@@ -63,7 +63,9 @@ class StartRecentKVCache:
             for k, v in past_key_values
         ]
 
-    def evict_for_space(self, past_key_values, num_coming):
+    def evict_for_space(
+        self, past_key_values, num_coming
+    ):  # D: num_coming = seq_len + max_gen_len
         if past_key_values is None:
             return None
         seq_len = past_key_values[0][0].size(self.k_seq_dim)

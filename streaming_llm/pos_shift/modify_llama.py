@@ -38,7 +38,10 @@ def llama_pos_shift_attention_forward(
     use_cache: bool = False,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
     bsz, q_len, _ = hidden_states.size()
-
+    # D: I wonder how much of this code is copied and how much changed
+    # D: LlamaAttention code is here https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py
+    # D: We basically override the forward method of LlamaAttention
+    # D: The main problem iswe can't change the function signature... (How to get around this??)
     if self.config.pretraining_tp > 1:
         key_value_slicing = (
             self.num_key_value_heads * self.head_dim
@@ -89,7 +92,10 @@ def llama_pos_shift_attention_forward(
     ### Shift Pos: query pos is min(cache_size, idx)
     # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
     query_states = apply_rotary_pos_emb_single(query_states, cos, sin, position_ids)
-    ###
+    ### D: In original code, this line is query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+    # D: which rotates both q,k at the same time. In this code we first rotary the q's, then we do the append, then rotate keys and
+    # D: add in this key_position_ids. I don't know why we need to rotate keys after?? Why do we need to split it up?
+    # D: Anyways, its just a simple hack...
 
     if past_key_value is not None:
         # reuse k, v, self_attention
@@ -103,7 +109,7 @@ def llama_pos_shift_attention_forward(
     key_states = apply_rotary_pos_emb_single(key_states, cos, sin, key_position_ids)
     ###
 
-    # repeat k/v heads if n_kv_heads < n_heads
+    # repeat k/v heads if n_kv_heads < n_heads D: This is also new
     key_states = repeat_kv(key_states, self.num_key_value_groups)
     value_states = repeat_kv(value_states, self.num_key_value_groups)
 
